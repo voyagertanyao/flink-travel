@@ -12,6 +12,7 @@ public class Test1_ReadFile {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(4);
 
+
         DataStream<String> txt = env.readTextFile("/Users/tanyao/IdeaProjects/flink-travel/src/main/resources/data.txt");
 
         SingleOutputStreamOperator<Device> mapStream = txt.map(data -> {
