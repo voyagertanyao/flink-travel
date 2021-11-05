@@ -16,6 +16,10 @@ public class CustomDebeziumDeserializationSchema implements DebeziumDeserializat
 
     private static final long serialVersionUID = -3168848963265670603L;
 
+    private final char DELIMITER = '|';
+
+    private final String NULL = "\\N";
+
     public CustomDebeziumDeserializationSchema() {
     }
 
@@ -42,22 +46,23 @@ public class CustomDebeziumDeserializationSchema implements DebeziumDeserializat
     private String extractAfterRow(SourceRecord record) throws Exception {
         Map<String, ?> offset = record.sourceOffset();
         Struct after = ((Struct) record.value()).getStruct("after");
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.putAll(offset);
-        for (Field field : after.schema().fields()) {
-            jsonObject.put(field.name(), after.get(field));
-        }
-        return jsonObject.toJSONString();
+        return getString(offset, after, "INSERT");
     }
 
     private String extractBeforeRow(SourceRecord record) throws Exception {
         Map<String, ?> offset = record.sourceOffset();
         Struct after = ((Struct) record.value()).getStruct("before");
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.putAll(offset);
-        for (Field field : after.schema().fields()) {
-            jsonObject.put(field.name(), after.get(field));
+        return getString(offset, after, "DELETE");
+    }
+
+    private String getString(Map<String, ?> offset, Struct record, String op) {
+        JSONObject json = new JSONObject();
+        json.put("_sec", offset.get("ts_sec"));
+        json.put("_pos", offset.get("pos"));
+        json.put("_op", op);
+        for (Field field : record.schema().fields()) {
+            json.put(field.name(), record.get(field));
         }
-        return jsonObject.toJSONString();
+        return json.toJSONString();
     }
 }
