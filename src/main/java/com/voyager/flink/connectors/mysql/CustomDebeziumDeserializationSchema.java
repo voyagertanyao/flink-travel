@@ -16,25 +16,32 @@ public class CustomDebeziumDeserializationSchema implements DebeziumDeserializat
 
     private static final long serialVersionUID = -3168848963265670603L;
 
-    private final char DELIMITER = '|';
+    private boolean snapshot = false;
 
-    private final String NULL = "\\N";
-
-    public CustomDebeziumDeserializationSchema() {
+    public CustomDebeziumDeserializationSchema(boolean snapshot) {
+        this.snapshot = snapshot;
     }
 
     @Override
     public void deserialize(SourceRecord record, Collector<String> out) throws Exception {
+        Struct source = ((Struct) record.value()).getStruct("source");
+        String snapshot = source.getString("snapshot");
+        if ("true".equals(snapshot) || "last".equals(snapshot)) {
+            out.collect(extractSnapshotRow(record));
+            if (this.snapshot && "last".equals(snapshot)) {
+                System.out.println("BINLOG: " + source.get("file") + "/" + source.get("pos"));
+            }
+            return;
+        }
         Envelope.Operation op = Envelope.operationFor(record);
         if (op != Envelope.Operation.CREATE && op != Envelope.Operation.READ) {
-            if (op == Envelope.Operation.DELETE) {
-                out.collect(extractBeforeRow(record));
+            if (op == Envelope.Operation.DELETE || op == Envelope.Operation.TRUNCATE) {
+                out.collect(extractDeleteRow(record));
             } else {
-                out.collect(extractBeforeRow(record));
-                out.collect(extractAfterRow(record));
+                out.collect(extractUpdateRow(record));
             }
         } else {
-            out.collect(extractAfterRow(record));
+            out.collect(extractInsertRow(record));
         }
     }
 
@@ -43,21 +50,33 @@ public class CustomDebeziumDeserializationSchema implements DebeziumDeserializat
         return BasicTypeInfo.STRING_TYPE_INFO;
     }
 
-    private String extractAfterRow(SourceRecord record) throws Exception {
+    private String extractInsertRow(SourceRecord record) throws Exception {
         Map<String, ?> offset = record.sourceOffset();
         Struct after = ((Struct) record.value()).getStruct("after");
         return getString(offset, after, "INSERT");
     }
 
-    private String extractBeforeRow(SourceRecord record) throws Exception {
+    private String extractDeleteRow(SourceRecord record) throws Exception {
         Map<String, ?> offset = record.sourceOffset();
         Struct after = ((Struct) record.value()).getStruct("before");
         return getString(offset, after, "DELETE");
     }
 
+    private String extractUpdateRow(SourceRecord record) throws Exception {
+        Map<String, ?> offset = record.sourceOffset();
+        Struct after = ((Struct) record.value()).getStruct("after");
+        return getString(offset, after, "UPDATE");
+    }
+
+    private String extractSnapshotRow(SourceRecord record) throws Exception {
+        Map<String, ?> offset = record.sourceOffset();
+        Struct after = ((Struct) record.value()).getStruct("after");
+        return getString(offset, after, "SNAPSHOT");
+    }
+
     private String getString(Map<String, ?> offset, Struct record, String op) {
         JSONObject json = new JSONObject();
-        json.put("_sec", offset.get("ts_sec"));
+        json.put("_sec", System.nanoTime());
         json.put("_pos", offset.get("pos"));
         json.put("_op", op);
         for (Field field : record.schema().fields()) {
