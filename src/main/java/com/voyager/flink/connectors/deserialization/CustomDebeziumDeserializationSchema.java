@@ -1,4 +1,4 @@
-package com.voyager.flink.connectors.mysql;
+package com.voyager.flink.connectors.deserialization;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.debezium.DebeziumDeserializationSchema;
@@ -13,8 +13,6 @@ import org.apache.kafka.connect.source.SourceRecord;
 import java.util.Map;
 
 public class CustomDebeziumDeserializationSchema implements DebeziumDeserializationSchema<String> {
-
-    private static final long serialVersionUID = -3168848963265670603L;
 
     private boolean snapshot = false;
 

@@ -2,6 +2,7 @@ package com.voyager.flink.connectors.mysql;
 
 import com.ververica.cdc.connectors.mysql.MySqlSource;
 import com.ververica.cdc.connectors.mysql.table.StartupOptions;
+import com.voyager.flink.connectors.deserialization.CustomDebeziumDeserializationSchema;
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.file.sink.FileSink;
